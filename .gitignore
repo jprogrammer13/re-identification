@@ -1,2 +1,4 @@
 *.pt
 runs
+data/data_raw
+data/dataset

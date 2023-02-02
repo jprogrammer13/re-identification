@@ -1,2 +1,4 @@
 https://github.com/Zhongdao/Towards-Realtime-MOT/blob/master/DATASET_ZOO.md
 https://github.com/ankitsinghsuraj/mot20
+https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
+http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf

@@ -1,0 +1,20 @@
+dataset
+ - 0
+    |_ 0.jpg
+    |_ 1.jpg
+       ...
+    |_ n0.jpg
+  - 1 
+    |_ 0.jpg
+    |_ 1.jpg
+       ...
+    |_ n1.jpg
+   ...
+  - m 
+    |_ 0.jpg
+    |_ 1.jpg
+       ...
+    |_ nm.jpg
+
+# balanced random(1) if > 0.5 take different track_id, same otherwise
+# we have to count n of img per clas
