@@ -2,4 +2,5 @@
 runs
 data/data_raw
 data/dataset
+data/test
 model/weights
