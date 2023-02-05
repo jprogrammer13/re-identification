@@ -2,5 +2,6 @@
 runs
 data/data_raw
 data/dataset
+data/gt_bbox
 data/test
 model/weights

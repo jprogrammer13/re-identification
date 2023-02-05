@@ -2,3 +2,7 @@ https://github.com/Zhongdao/Towards-Realtime-MOT/blob/master/DATASET_ZOO.md
 https://github.com/ankitsinghsuraj/mot20
 https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
 http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
+https://arxiv.org/pdf/2110.04764.pdf
+https://pyimagesearch.com/2021/01/18/contrastive-loss-for-siamese-networks-with-keras-and-tensorflow/
+https://keras.io/examples/vision/siamese_contrastive/
+https://towardsdatascience.com/one-shot-learning-with-siamese-networks-using-keras-17f34e75bb3d
