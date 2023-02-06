@@ -5,3 +5,4 @@ data/dataset
 data/gt_bbox
 data/test
 model/weights
+*.pyc
