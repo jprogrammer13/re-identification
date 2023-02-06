@@ -1,2 +1,5 @@
 *.pt
-runs
+runs*
+*.idea
+*.DS_Store
+*.mp4
