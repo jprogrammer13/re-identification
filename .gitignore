@@ -3,3 +3,9 @@ runs*
 *.idea
 *.DS_Store
 *.mp4
+data/data_raw
+data/dataset
+data/gt_bbox
+data/test
+model/weights
+*.pyc
