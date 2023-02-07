@@ -1,5 +1,6 @@
 *.pt
 runs*
+prova
 *.idea
 *.DS_Store
 *.mp4
