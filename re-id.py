@@ -31,7 +31,7 @@ def crop_segmentation(segment,box,image):
 
 file_path = 'friends.mp4'
 cap = cv2.VideoCapture(file_path)
-video_out = cv2.VideoWriter("./out_friends.mp4", cv2.VideoWriter_fourcc(*'DIVX'), int(cap.get(cv2.CAP_PROP_FPS)), (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
+video_out = cv2.VideoWriter("./out_firends.mp4", cv2.VideoWriter_fourcc(*'DIVX'), int(cap.get(cv2.CAP_PROP_FPS)), (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
 
 
 i = 0
@@ -46,17 +46,18 @@ vid_w, vid_h = int(cap.get(3)), int(cap.get(4))
 vid_w, vid_h
 
 
+frames_window = 10
 # generate a circular buffer for video frame(4)
-four_frames = np.zeros((4,vid_h, vid_w,3),dtype="uint8")
+buffer_frames = np.zeros((frames_window,vid_h, vid_w,3),dtype="uint8")
 
 
 frame_n = 0
-while frame_n < 600:
+while frame_n < 500:
         
     # populate circular buffer with frame
-    while i < 4:
+    while i < frames_window:
         ret, frame = cap.read()
-        four_frames[i] = frame.copy()
+        buffer_frames[i] = frame.copy()
         i+=1
         if not ret:
             cap.release()
@@ -70,14 +71,14 @@ while frame_n < 600:
 
     
     # detections array associated to frames
-    four_detections = [None,None,None,None]
+    buffer_detections = [None]*frames_window
 
 
     
     # make prediction for each frame in the buffer
-    for frame_id in range(4):
+    for frame_id in range(frames_window):
         # deep copy of frame image (yolo draw on the predicted image)
-        frame_copy = deepcopy(four_frames[frame_id])
+        frame_copy = deepcopy(buffer_frames[frame_id])
 
         # get results and convert to numpy
         results = model.predict(frame_copy)[0].cpu().numpy()
@@ -92,7 +93,7 @@ while frame_n < 600:
         centers = results.boxes.xywh[idx][:, :2].copy().astype(int)
 
         # populate detection array with associeted detections
-        four_detections[frame_id] = pd.DataFrame({
+        buffer_detections[frame_id] = pd.DataFrame({
                                                 'box': boxes.tolist(),
                                                 'mask': masks.tolist(),
                                                 'center': centers.tolist(),
@@ -106,14 +107,14 @@ while frame_n < 600:
 
     
     # count the max detections number in per frame
-    cluster_numbers = max([len(j) for j in four_detections])
+    cluster_numbers = max([len(j) for j in buffer_detections])
     cluster_numbers
 
     
     # create a list containing all the detections per frame
     centers = []
 
-    for j in four_detections:
+    for j in buffer_detections:
         for val in j['center'].values:
             centers.append(val)
 
@@ -123,7 +124,7 @@ while frame_n < 600:
 
     
     # for each detections find the box number
-    for det in four_detections:
+    for det in buffer_detections:
         det['box_id'] = det['center'].apply(lambda x: kmeans.predict(np.array([x]).tolist())[0])
 
     del cluster_numbers, centers, kmeans
@@ -139,15 +140,15 @@ while frame_n < 600:
 
     
     # for each detection calculate feature vector and the correspondent track_id [-1 if no similarity found]
-    for i,det in enumerate(four_detections):
-        det['fv'] = det.apply(lambda x: siamese_net.fv_encoding(Image.fromarray(crop_segmentation(np.array(x['mask']),np.array(x['box']),four_frames[i]))).cpu().numpy(),axis=1)
-        det['track_id'] = det.apply(lambda x: get_tid(track_id_df,Image.fromarray(crop_segmentation(np.array(x['mask']),np.array(x['box']),four_frames[i]))),axis=1)
+    for i,det in enumerate(buffer_detections):
+        det['fv'] = det.apply(lambda x: siamese_net.fv_encoding(Image.fromarray(crop_segmentation(np.array(x['mask']),np.array(x['box']),buffer_frames[i]))).cpu().numpy(),axis=1)
+        det['track_id'] = det.apply(lambda x: get_tid(track_id_df,Image.fromarray(crop_segmentation(np.array(x['mask']),np.array(x['box']),buffer_frames[i]))),axis=1)
 
     
     # for each detection id get the four tid prediction
     counter = {}
 
-    for i,det in enumerate(four_detections):
+    for i,det in enumerate(buffer_detections):
         for index, row in det.iterrows():
             tmp_box_id = row['box_id']
             if str(tmp_box_id) not in counter:
@@ -162,13 +163,13 @@ while frame_n < 600:
         # counter[key] = max(counter[key],key=counter[key].count)
         counting_inst = {str(u):counter[key].count(u) for u in np.unique(np.array(counter[key]))}
         candidate_tid = max(counting_inst,key=counting_inst.get)
-        tid = candidate_tid if counting_inst[candidate_tid] >= 3 else None
+        tid = candidate_tid if counting_inst[candidate_tid] >= frames_window//2 else None
         counter[key] = tid
 
 
     
     # for each detection, set the processed tid
-    for det in four_detections:
+    for det in buffer_detections:
         det['track_id'] = det['box_id'].apply(lambda x: counter[str(x)])
 
     
@@ -176,7 +177,7 @@ while frame_n < 600:
 
     
     added = {}
-    for det in four_detections:
+    for det in buffer_detections:
         for index, row in det.iterrows():
             if row['track_id'] is not None:
                 if int(row['track_id']) == -1:
@@ -193,15 +194,15 @@ while frame_n < 600:
                         det._set_value(index,'track_id',added[row['box_id']])
                         row['track_id'] = added[row['box_id']]
 
-                track_id_df.loc[int(row['track_id'])]['fv'] = row['fv']
+                # track_id_df.loc[int(row['track_id'])]['fv'] = row['fv']
 
     
     del added
 
     
-    for f in range(2):
-        drew_frame = four_frames[f].copy()
-        for indx, row in four_detections[f].iterrows():
+    for f in range(frames_window//2):
+        drew_frame = buffer_frames[f].copy()
+        for indx, row in buffer_detections[f].iterrows():
             if row['track_id'] is not None:
                 color = track_id_df.loc[int(row['track_id'])]['color']
                 drew_frame = cv2.rectangle(drew_frame, (int(row['box'][0]), int(row['box'][1])), (int(row['box'][2]), int(row['box'][3])), color, 3)
@@ -213,14 +214,18 @@ while frame_n < 600:
             
 
     
-    del four_detections
+    del buffer_detections
 
-    four_frames[0] = four_frames[2]
-    four_frames[1] = four_frames[3]
+    # TODO: fix this
+    buffer_frames[0] = buffer_frames[5]
+    buffer_frames[1] = buffer_frames[6]
+    buffer_frames[2] = buffer_frames[7]
+    buffer_frames[3] = buffer_frames[8]
+    buffer_frames[4] = buffer_frames[9]
 
-    i = 2
+    i = frames_window//2
 
-    frame_n += 2
+    frame_n += frames_window//2
 
     
 
