@@ -29,9 +29,9 @@ def crop_segmentation(segment,box,image):
     img_segm = img_segm[box[1]:box[3],box[0]:box[2]]
     return cv2.cvtColor(img_segm, cv2.COLOR_BGR2RGB)
 
-file_path = 'friends.mp4'
+file_path = 'test_scout.mp4'
 cap = cv2.VideoCapture(file_path)
-video_out = cv2.VideoWriter("./out_firends.mp4", cv2.VideoWriter_fourcc(*'DIVX'), int(cap.get(cv2.CAP_PROP_FPS)), (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
+video_out = cv2.VideoWriter("./out_scout.mp4", cv2.VideoWriter_fourcc(*'DIVX'), int(cap.get(cv2.CAP_PROP_FPS)), (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
 
 
 i = 0
@@ -47,7 +47,7 @@ vid_w, vid_h
 
 
 frames_window = 10
-# generate a circular buffer for video frame(4)
+# generate a circular buffer for video frame(frame_window)
 buffer_frames = np.zeros((frames_window,vid_h, vid_w,3),dtype="uint8")
 
 
@@ -57,18 +57,13 @@ while frame_n < 500:
     # populate circular buffer with frame
     while i < frames_window:
         ret, frame = cap.read()
-        buffer_frames[i] = frame.copy()
-        i+=1
         if not ret:
             cap.release()
             video_out.release()
-            quit() #kill the program
+            exit() #kill the program
 
-
-    # four_detectiona[0] = four_detectiona[2]
-    # four_detectiona[1] = four_detectiona[3]
-    # i = 2
-
+        buffer_frames[i] = frame.copy()
+        i+=1
     
     # detections array associated to frames
     buffer_detections = [None]*frames_window
@@ -76,7 +71,7 @@ while frame_n < 500:
 
     
     # make prediction for each frame in the buffer
-    for frame_id in range(frames_window):
+    for frame_id in range(frames_window): #
         # deep copy of frame image (yolo draw on the predicted image)
         frame_copy = deepcopy(buffer_frames[frame_id])
 
@@ -163,17 +158,26 @@ while frame_n < 500:
         # counter[key] = max(counter[key],key=counter[key].count)
         counting_inst = {str(u):counter[key].count(u) for u in np.unique(np.array(counter[key]))}
         candidate_tid = max(counting_inst,key=counting_inst.get)
-        tid = candidate_tid if counting_inst[candidate_tid] >= frames_window//2 else None
+        tid = candidate_tid if counting_inst[candidate_tid] >= int(frames_window*.8) else None
         counter[key] = tid
 
-
-    
+    used = []
+    # implement filter on duplicate tid
+    for id in counter:
+        if counter[id] is not None: #if None don't evaluate
+            if int(counter[id]) != -1: #ignore -1 (to add)
+                if counter[id] not in used:
+                    used.append(counter[id])
+                else:
+                    counter[id] = None
+        
     # for each detection, set the processed tid
     for det in buffer_detections:
         det['track_id'] = det['box_id'].apply(lambda x: counter[str(x)])
 
     
     del counter
+    del used
 
     
     added = {}
@@ -199,7 +203,6 @@ while frame_n < 500:
     
     del added
 
-    
     for f in range(frames_window//2):
         drew_frame = buffer_frames[f].copy()
         for indx, row in buffer_detections[f].iterrows():
@@ -207,21 +210,19 @@ while frame_n < 500:
                 color = track_id_df.loc[int(row['track_id'])]['color']
                 drew_frame = cv2.rectangle(drew_frame, (int(row['box'][0]), int(row['box'][1])), (int(row['box'][2]), int(row['box'][3])), color, 3)
                 drew_frame = cv2.putText(drew_frame, str(row['track_id']), (int(row['box'][0]),int(row['box'][1])), cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 2, cv2.LINE_AA)
+            else:
+                color = (255,255,255)
+                drew_frame = cv2.rectangle(drew_frame, (int(row['box'][0]), int(row['box'][1])), (int(row['box'][2]), int(row['box'][3])), color, 1)
 
         # cv2.imwrite(f"./prova/{time.time()}.jpg", drew_frame)
         video_out.write(drew_frame.copy())
         del drew_frame
-            
 
     
-    del buffer_detections
+    # del buffer_detections
 
-    # TODO: fix this
-    buffer_frames[0] = buffer_frames[5]
-    buffer_frames[1] = buffer_frames[6]
-    buffer_frames[2] = buffer_frames[7]
-    buffer_frames[3] = buffer_frames[8]
-    buffer_frames[4] = buffer_frames[9]
+    for f_swap in range(frames_window//2):
+        buffer_frames[f_swap] = buffer_frames[f_swap+frames_window//2] 
 
     i = frames_window//2
 
