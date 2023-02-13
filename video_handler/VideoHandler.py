@@ -15,7 +15,7 @@ class VideoHandler:
 
         self.__video_out = cv2.VideoWriter(
             str(self.__video_path.split('.')[0] + "_out.mp4"),
-            cv2.VideoWriter_fourcc(*'avc1'),
+            cv2.VideoWriter_fourcc(*'mp4v'),
             int(self.__capture.get(cv2.CAP_PROP_FPS)),
             (int(self.__capture.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.__capture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         )

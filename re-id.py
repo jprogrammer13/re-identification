@@ -21,9 +21,12 @@ import progressbar
 model = YOLO("yolov8m-seg.pt")
 # model = YOLO("yolov8n-seg.pt")
 # siamese_net = SiameseReId(os.path.join('model', 'weights', 'model_final_default.pt'))
-siamese_net = SiameseReId(os.path.join('model', 'weights', 'model_final_mars.pt'))
+siamese_net = SiameseReId(os.path.join(
+    'model', 'weights', 'model_final_mars.pt'))
 
 # function to get cropped image of the bb size with segmentation mask applied
+
+
 def crop_segmentation(_mask, _box, _image):
     img = _image.copy()
     box = _box.astype(int)
@@ -49,13 +52,50 @@ def get_tid(track_id_df, det_img):
         return similarity.idxmax() if similarity.loc[similarity.idxmax()] > 0.8 else -1
 
 
+def is_light_or_dark(color):
+    r, g, b = color
+    hsp = np.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b))
+    return hsp > 127.5  # light
+
+
+def frame_draw_bb(frame, bb, color, thickness=3):
+    return cv2.rectangle(frame, (bb[0], bb[1]), (bb[2], bb[3]), color, thickness)
+
+
+def frame_draw_track_id(
+        frame, text, pos, color,
+        font=cv2.FONT_HERSHEY_SIMPLEX, font_scale=1, thick=2, line_type=cv2.LINE_AA):
+
+    text_color = (0, 0, 0) if is_light_or_dark(color) else (255, 255, 255)
+
+    text_size, _ = cv2.getTextSize(text, font, font_scale, thick)
+    text_w, text_h = text_size
+    frame_text = cv2.rectangle(
+        frame, (pos[0], pos[1]), (pos[0] + text_w, pos[1] - text_h), color, -1)
+    frame_text = cv2.putText(
+        frame_text, text,
+        (pos[0], pos[1] - font_scale - 1),
+        font, font_scale, text_color, thick, line_type
+    )
+
+    return frame_text
+
+    # return cv2.putText(frame, text, (pos[0], pos[1]), font, font_scale, color, thick, line_type)
+
+
+def frame_draw_info(frame, bb, color, text):
+    bb_frame = frame_draw_bb(frame, bb, color)
+    text_frame = frame_draw_track_id(bb_frame, text, (bb[0], bb[1]), color)
+    return text_frame
+
+
 def exec_re_id(_video_in, _video_out, _frames_window=10, total_frame=-1):
 
     file_path = _video_in
 
     cap = cv2.VideoCapture(file_path)
 
-    video_out = cv2.VideoWriter(_video_out, cv2.VideoWriter_fourcc(*'DIVX'), int(cap.get(
+    video_out = cv2.VideoWriter(_video_out, cv2.VideoWriter_fourcc(*'mp4v'), int(cap.get(
         cv2.CAP_PROP_FPS)), (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
 
     buffer_idx = 0
@@ -135,7 +175,7 @@ def exec_re_id(_video_in, _video_out, _frames_window=10, total_frame=-1):
                     'box_id': np.full(len(idx[0]), -1).tolist(),
                     'track_id': np.full(len(idx[0]), -1).tolist()
                 }).copy()
-            else: # no people detected
+            else:  # no people detected
                 # populate detection array with empty detections
                 buffer_detections[frame_id] = pd.DataFrame({
                     'box': [],
@@ -255,22 +295,15 @@ def exec_re_id(_video_in, _video_out, _frames_window=10, total_frame=-1):
                 drew_frame = buffer_frames[frame].copy()
 
                 for indx, row in buffer_detections[frame].iterrows():
+                    text = 'Unknown'
+                    color = (255, 255, 255)
 
                     if row['track_id'] is not None:
                         color = track_id_df.loc[int(row['track_id'])]['color']
-                        
-                        drew_frame = cv2.rectangle(drew_frame, (int(row['box'][0]), int(
-                            row['box'][1])), (int(row['box'][2]), int(row['box'][3])), color, 3)
+                        text = str(row['track_id'])
 
-                        drew_frame = cv2.putText(drew_frame, str(row['track_id']), (int(row['box'][0]), int(
-                            row['box'][1])), cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 2, cv2.LINE_AA)
-
-                    else:
-                        color = (255, 255, 255)
-
-                        drew_frame = cv2.rectangle(drew_frame, (int(row['box'][0]), int(
-                            row['box'][1])), (int(row['box'][2]), int(row['box'][3])), color, 1)
-
+                    drew_frame = frame_draw_info(drew_frame, np.array(
+                        row['box']).astype(int), color, text)
                 # cv2.imwrite(f"./prova/{time.time()}.jpg", drew_frame)
                 video_out.write(drew_frame.copy())
                 del drew_frame
@@ -290,16 +323,17 @@ def exec_re_id(_video_in, _video_out, _frames_window=10, total_frame=-1):
         # swap and time propagate with ciruclar buffer
         for frame in range(frames_window//2):
             buffer_frames[frame] = buffer_frames[frame +
-                                                  (frames_window//2)].copy()
+                                                 (frames_window//2)].copy()
             buffer_detections[frame] = buffer_detections[frame +
-                                                          (frames_window//2)].copy()
+                                                         (frames_window//2)].copy()
 
+        # update progreessbar
+        bar.update(frame_n)
+        
         buffer_idx = (frames_window//2)
 
         frame_n += (frames_window//2)
 
-        # update progreessbar
-        bar.update(frame_n)
 
     cap.release()
     video_out.release()

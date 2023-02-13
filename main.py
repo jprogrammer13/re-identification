@@ -19,7 +19,7 @@ from model.SiameseReId import SiameseReId
 class ReID():
     def __init__(self, video_path: str, n_frames: int = -1,  batch_size: int = -1) -> None:
         self.__video_handler: VideoHandler = VideoHandler(video_path)
-        self.__detection: Detection = Detection()
+        self.__detection: Detection = Detection(m_size="m")
         self.__siamese_net: SiameseReId = SiameseReId("./model/weights/model_final_mars.pt")
         self.__features: pd.DataFrame = pd.DataFrame(columns=["fv", "color"])
         self.__vid_w, self.__vid_h, video_frame_count = self.__video_handler.get_video_w_h_fc()
@@ -250,10 +250,11 @@ class ReID():
             # circulate circular buffers
             self.__buffers_swap(self.__batch_size // 2)
 
+            self.__progress_bar.update(frame_nr)
+
             # increment indexes
             buffer_head = (self.__batch_size // 2)
             frame_nr += (self.__batch_size // 2)
-            self.__progress_bar.update(frame_nr)
 
             if not ret:
                 self.__video_handler.set_last_frame()

@@ -8,11 +8,11 @@ from PIL import Image
 
 
 class Detection:
-    def __init__(self, epsilon: float = 30, confidence: float = 0.6, coco_v: str = "s") -> None:
+    def __init__(self, epsilon: float = 30, confidence: float = 0.6, m_size: str = "s") -> None:
         self.__epsilon = epsilon
         # self.__confidence = confidence
-        self.__det_model = YOLO(f"yolov8{coco_v}.pt")
-        self.__seg_model = YOLO(f"yolov8{coco_v}-seg.pt")
+        self.__det_model = YOLO(f"yolov8{m_size}.pt")
+        self.__seg_model = YOLO(f"yolov8{m_size}-seg.pt")
         # COCO128 classes https://github.com/ultralytics/yolov5/blob/master/data/coco128.yaml
 
     def __distance(self, point1: np.ndarray, point2: np.ndarray) -> float:
@@ -93,7 +93,7 @@ class Detection:
         for frame_nr in range(len(results)):
             result = results[frame_nr]
 
-            idx = np.where((result.boxes.cls == 0) & (result.boxes.conf > confidence))
+            idx = np.where(((result.boxes.cls == 0) & (result.boxes.conf > confidence)).cpu().numpy())
 
             df = pd.DataFrame(
                 columns=["frame_nr", "xyxy", "xywh", "conf", "center", "class", "masks", "box_id", "track_id"]
