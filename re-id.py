@@ -206,13 +206,13 @@ def exec_re_id(_video_in, _video_out, _frames_window=10, total_frame=-1):
 
             used = []
             # implement filter on duplicate tid
-            for id in counter:
-                if counter[id] is not None:  # if None don't evaluate
-                    if int(counter[id]) != -1:  # ignore -1 (to add)
-                        if counter[id] not in used:
-                            used.append(counter[id])
+            for key in counter:
+                if counter[key] is not None:  # if None don't evaluate
+                    if int(counter[key]) != -1:  # ignore -1 (to add)
+                        if counter[key] not in used:
+                            used.append(counter[key])
                         else:
-                            counter[id] = None
+                            counter[key] = None
 
             # for each detection, set the processed tid
             for det in buffer_detections:
