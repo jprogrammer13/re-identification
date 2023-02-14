@@ -1,5 +1,6 @@
 *.pt
 runs*
+prova
 *.idea
 *.DS_Store
 *.mp4
@@ -9,3 +10,4 @@ data/gt_bbox
 data/test
 model/weights
 *.pyc
+data/bbox_test
